@@ -1,5 +1,6 @@
 package fr.epsi.orm.myorm.persistence;
 
+import fr.epsi.orm.myorm.annotation.Transient;
 import fr.epsi.orm.myorm.lib.ReflectionUtil;
 import javaslang.Predicates;
 
@@ -48,6 +49,15 @@ public class MappingHelper {
     }
 
     public static Map<String, Object> entityToParams(Object entity, Predicate<Field>... predicates) {
-        return new HashMap<>();
+        HashMap res = new HashMap<>();
+        ReflectionUtil.getFields(entity.getClass(), predicates).filter(field ->
+                !ReflectionUtil.getAnnotationForField(field, Transient.class).isPresent())
+                .forEach(field -> {
+                    Optional value = ReflectionUtil.getValue(field, entity);
+                    if (value.isPresent() && SqlGenerator.getColumnNameForField(field) != "id") {
+                        res.put(SqlGenerator.getColumnNameForField(field), value.get());
+                    }
+                });
+        return res;
     }
 }

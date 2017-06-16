@@ -44,7 +44,13 @@ public class BasicEntityManager implements EntityManager {
      * @throws IllegalArgumentException if a class does not match the conditions
      */
     private static void checkPersistentClasses(Set<Class<?>> persistentClasses) {
-
+        persistentClasses.forEach(entityClass -> {
+            //If Class isn't annotated with @Entity
+        ReflectionUtil.getAnnotationForClass(entityClass, Entity.class)
+                .orElseThrow(() -> new IllegalArgumentException("Not correct class passed to EntityManager"));
+            //If Class doesn't have one and only one field with the @Id annotation
+        if (ReflectionUtil.getFieldsDeclaringAnnotation(entityClass, Id.class).count() != 1) { throw new IllegalArgumentException("c'est pas bon"); }
+    });
     }
 
     /**
@@ -53,6 +59,7 @@ public class BasicEntityManager implements EntityManager {
      */
     private void isManagedClass(Class<?> checkClass) {
         if (!persistentClasses.contains(checkClass)) {
+
             throw new IllegalArgumentException("The class "+checkClass.getName()+" is not managed by this EntityManager ...");
         }
     }
@@ -73,7 +80,29 @@ public class BasicEntityManager implements EntityManager {
      */
     @Override
     public <T> Optional<T> find(Class<T> entityClass, Object id) {
-      return Optional.empty();
+        isManagedClass(entityClass);
+        return ReflectionUtil.getFieldDeclaringAnnotation(entityClass, Id.class)
+                .map((idField) -> {
+                    List<T> result = executeQuery(entityClass, SqlGenerator.generateSelectSql(entityClass, idField), new HashMap<String, Object>() {{
+                        put("id", id);
+                    }});
+                    return result.isEmpty() ? null : result.get(0);
+                });
+    }
+
+
+    private <T> List<T> executeQuery(Class<T> entityClass, String sql, Map<String, Object> parameters) {
+        try {
+            NamedPreparedStatement statement = NamedPreparedStatement.prepare(datasource.getConnection(), sql);
+            statement.setParameters(parameters);
+            ResultSet resultSet = statement.executeQuery();
+//            System.out.println("RESULT executeQuery : "+ MappingHelper.mapFromResultSet(entityClass, resultSet));
+            List<T> data = MappingHelper.mapFromResultSet(entityClass, resultSet);
+            return data;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
     }
 
     /**
@@ -89,7 +118,33 @@ public class BasicEntityManager implements EntityManager {
      */
     @Override
     public <T> Optional<T> save(T entity) {
-        return Optional.empty();
+        isManagedClass(entity.getClass());
+
+        Map<String, Object> map = MappingHelper.entityToParams(entity);
+
+        ArrayList<String> fieldNames = new ArrayList<>();
+        map.keySet().forEach(key -> {
+            fieldNames.add(key);
+        });
+
+        ArrayList<String> fieldValues = new ArrayList<>();
+        map.values().forEach(value -> {
+            fieldValues.add(value.toString());
+        });
+
+        String sql = SqlGenerator.generateInsertSql(entity.getClass(), fieldNames, fieldValues);
+
+        List<T> result = executeQuery((Class<T>) entity.getClass(), sql,new HashMap<String, Object>() {{
+            for(int i = 0; i < fieldNames.size(); i++){
+                put(fieldNames.get(i), fieldValues.get(i));
+            }
+        }});
+
+        System.out.println("BasicEntityManager save result : " + result);
+
+        return null;
+//        return result;
+
     }
 
     /**

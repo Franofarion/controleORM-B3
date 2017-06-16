@@ -16,7 +16,7 @@ import java.sql.SQLException;
  */
 public class Samples {
 
-private static final String CREATE_TEST_TABLE =
+    private static final String CREATE_TEST_TABLE =
         "CREATE TABLE test (" +
         "  id BIGINT IDENTITY PRIMARY KEY," +
         "  name VARCHAR(30)," +

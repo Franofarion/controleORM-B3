@@ -6,6 +6,7 @@ import fr.epsi.orm.myorm.annotation.Id;
 import fr.epsi.orm.myorm.lib.ReflectionUtil;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
@@ -42,5 +43,34 @@ public class SqlGenerator {
                         getTableForEntity(entityClass)+
                         " WHERE "+ getColumnNameForField(f) + " = :"+f.getName())
                 .orElse("");
+    }
+
+    public static String generateSelectSql(Class<?> clazz, Field... fields) {
+        String result =  "SELECT " + generateSelectForEntity(clazz) + " FROM " + getTableForEntity(clazz);
+        if (fields.length > 0) {
+            result = Arrays.stream(fields)
+                    .map(f -> " "+ getColumnNameForField(f) + " = :"+f.getName())
+                    .reduce(result.concat(" WHERE"), (acc, value) -> acc.concat(value));
+        }
+        System.out.println("RESULT generateSelectSql : "+ result);
+        return result;
+    }
+
+    public static String generateInsertSql(Class<?> clazz, ArrayList fieldNames, ArrayList fieldValues) {
+        boolean defaultId = true;
+        String result = "INSERT INTO " + SqlGenerator.getTableForEntity(clazz)+ " (" + (defaultId ? "id, " : "")
+                + String.join(", ", fieldNames) + ") VALUES (" + (defaultId ? "default, " : "") + "'"
+                + String.join("', '", fieldValues) + "')";
+
+        System.out.println("INSERT QUERY   : " + result);
+        return result;
+    }
+
+
+
+    public static String generateSelectForEntity(Class<?> clazz) {
+        return ReflectionUtil.getFieldsWithoutTransient(clazz)
+                .map((f) -> getColumnNameForField(f).concat(" as ").concat(f.getName()))
+                .collect(Collectors.joining(", "));
     }
 }

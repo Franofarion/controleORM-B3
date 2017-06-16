@@ -107,6 +107,7 @@ public class BasicEntityManagerTest {
         user.setBirthDate(LocalDate.of(1990, 04,23));
 
         Optional<User> persistedUser = em.save(user);
+
         assertTrue(persistedUser.isPresent());
         user = persistedUser.get();
         assertNotEquals(Long.valueOf(0), user.getId());
